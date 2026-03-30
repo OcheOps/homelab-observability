@@ -1,0 +1,72 @@
+# Device Inventory — discovered via nmap scan 2026-03-30
+# Devices with randomized MACs need manual identification
+# Update this file as you identify devices on your network
+
+# ── Network Infrastructure ──
+"192.168.1.1":
+  name: "ZTE-Router"
+  owner: "ISP"
+  type: "router"
+  mac: "30:d3:86:b4:40:25"
+  notes: "ISP gateway, ZTE manufacturer"
+
+"192.168.1.200":
+  name: "ochehomelab"
+  owner: "Oche"
+  type: "server"
+  mac: ""
+  notes: "Main homelab server, Ubuntu 24.04"
+
+# ── Amazon Device ──
+"192.168.1.12":
+  name: "Amazon-Device"
+  owner: "Household"
+  type: "iot"
+  mac: "24:ce:33:a5:12:ed"
+  notes: "Amazon Technologies MAC — Echo, Fire TV, or Ring device"
+
+# ── Unidentified Devices (randomized MACs) ──
+# These have MAC randomization enabled (phones, laptops, tablets)
+# Update the names as you identify them
+
+"192.168.1.11":
+  name: "Unknown-11"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "5e:69:88:86:4a:b4"
+  notes: "Randomized MAC, likely phone or laptop"
+
+"192.168.1.13":
+  name: "Unknown-13"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "56:f6:ee:f2:b3:a8"
+  notes: "Randomized MAC"
+
+"192.168.1.14":
+  name: "Unknown-14"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "7e:0d:62:95:81:78"
+  notes: "Randomized MAC"
+
+"192.168.1.15":
+  name: "Unknown-15"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "02:77:e2:7b:66:3d"
+  notes: "Randomized MAC"
+
+"192.168.1.17":
+  name: "Unknown-17"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "0e:12:7d:b6:64:ca"
+  notes: "Randomized MAC"
+
+"192.168.1.20":
+  name: "Unknown-20"
+  owner: "Unknown"
+  type: "unknown"
+  mac: "66:8d:f4:f1:32:24"
+  notes: "Randomized MAC"

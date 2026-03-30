@@ -1,0 +1,70 @@
+# Prometheus configuration for homelab-observability
+# Scrape interval of 15s is a good balance between resolution and resource usage
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# Load alert rules from the alerts directory
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+# Send alerts to Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+
+  # --- Prometheus self-monitoring ---
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # --- Host metrics via Node Exporter ---
+  # CPU, memory, disk IO, network bandwidth per interface
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    # Relabel to use a friendly instance name
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'ochehomelab'
+
+  # --- Netdata metrics ---
+  # Netdata exposes a Prometheus-compatible endpoint
+  - job_name: 'netdata'
+    metrics_path: /api/v1/allmetrics
+    params:
+      format: [prometheus]
+    static_configs:
+      - targets: ['netdata:19999']
+
+  # --- ntopng metrics ---
+  # ntopng runs on host network, so reference host IP from inside the bridge network
+  # NOTE: This uses the Docker bridge gateway IP. Adjust if your setup differs.
+  - job_name: 'ntopng'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:3002']
+    # ntopng prometheus metrics may not be available in community edition
+    # This is a best-effort scrape — it won't break anything if unavailable
+    scrape_interval: 30s
+
+  # --- Throttle Engine health ---
+  - job_name: 'throttle-engine'
+    metrics_path: /healthz
+    static_configs:
+      - targets: ['host.docker.internal:8090']
+
+  # ────────────────────────────────────────────
+  # FUTURE: Add more exporters here
+  # Examples:
+  #   - blackbox-exporter for endpoint probing
+  #   - snmp-exporter once you have router access
+  #   - cadvisor for per-container metrics
+  # ────────────────────────────────────────────

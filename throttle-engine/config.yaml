@@ -1,0 +1,28 @@
+# Auto-Throttle Engine configuration
+# These values can be overridden by environment variables
+
+server:
+  listen_addr: ":8090"
+  read_timeout: 10s
+  write_timeout: 10s
+
+logging:
+  level: "info"   # debug, info, warn, error
+  format: "json"  # json or text
+
+thresholds:
+  # Bandwidth threshold in bytes/sec (default: 100MB/s)
+  bandwidth_bytes_per_sec: 104857600
+  # How many consecutive alerts before taking action
+  alert_count_before_action: 3
+
+inventory:
+  # Path to the device inventory file
+  path: "/app/devices.yaml"
+
+# FUTURE: OPNsense API integration
+# opnsense:
+#   api_url: "https://192.168.1.1/api"
+#   api_key: ""
+#   api_secret: ""
+#   verify_tls: false

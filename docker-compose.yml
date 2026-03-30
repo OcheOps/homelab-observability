@@ -1,0 +1,185 @@
+# homelab-observability docker-compose
+# Provides: Prometheus, Alertmanager, Grafana, Netdata, ntopng,
+#           Node Exporter, Auto-Throttle Engine, Cloudflared
+#
+# Usage:
+#   cp .env.example .env   # fill in your values
+#   docker compose up -d
+
+services:
+
+  # ──────────────────────────────────────────────
+  # Metrics Collection
+  # ──────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'          # allows hot-reload via POST /-/reload
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+    ports:
+      - "127.0.0.1:9090:9090"            # local-only; Cloudflare Tunnel handles public access
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring
+    ports:
+      - "127.0.0.1:9093:9093"
+
+  # Node Exporter — exposes host-level metrics to Prometheus
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: node-exporter
+    restart: unless-stopped
+    # These mounts give node-exporter read-only access to host metrics
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    pid: host                             # required for accurate process metrics
+    networks:
+      - monitoring
+
+  # ──────────────────────────────────────────────
+  # Dashboards & Visualization
+  # ──────────────────────────────────────────────
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:-changeme}
+      - GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL:-https://grafana-monitor.ocheverse.ng}
+      - GF_SERVER_DOMAIN=${GF_SERVER_DOMAIN:-grafana-monitor.ocheverse.ng}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      # Needed when behind Cloudflare Tunnel (proxy)
+      - GF_SERVER_ENFORCE_DOMAIN=false
+      - GF_AUTH_PROXY_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - monitoring
+    ports:
+      - "127.0.0.1:3003:3000"              # 3000 already in use on host
+
+  # ──────────────────────────────────────────────
+  # Real-time System Monitoring
+  # ──────────────────────────────────────────────
+
+  netdata:
+    image: netdata/netdata:v1.46
+    container_name: netdata
+    restart: unless-stopped
+    hostname: ochehomelab
+    cap_add:
+      - SYS_PTRACE                        # needed for application monitoring
+      - SYS_ADMIN                         # needed for some collectors
+    security_opt:
+      - apparmor:unconfined               # required on some Ubuntu/Debian hosts
+    volumes:
+      - netdata_config:/etc/netdata
+      - netdata_lib:/var/lib/netdata
+      - netdata_cache:/var/cache/netdata
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # monitor other containers
+    environment:
+      - NETDATA_CLAIM_TOKEN=              # leave empty unless claiming to Netdata Cloud
+      - NETDATA_CLAIM_ROOMS=
+    networks:
+      - monitoring
+    ports:
+      - "127.0.0.1:19999:19999"
+
+  # ──────────────────────────────────────────────
+  # Network Traffic Analysis
+  # ──────────────────────────────────────────────
+
+  ntopng:
+    image: vimagick/ntopng:latest
+    container_name: ntopng
+    restart: unless-stopped
+    # host networking is REQUIRED for ntopng to see real traffic on the interface
+    network_mode: host
+    command: ntopng --http-port=3002 -i eno1 --community --local-networks 192.168.1.0/24 --dns-mode 1 --disable-login 0
+    volumes:
+      - ntopng_data:/var/lib/ntopng
+
+  # ──────────────────────────────────────────────
+  # Auto-Throttle Engine (Go)
+  # ──────────────────────────────────────────────
+
+  throttle-engine:
+    build:
+      context: ./throttle-engine
+      dockerfile: Dockerfile
+    container_name: throttle-engine
+    restart: unless-stopped
+    environment:
+      - THROTTLE_LISTEN_ADDR=${THROTTLE_LISTEN_ADDR:-:8090}
+      - THROTTLE_LOG_LEVEL=${THROTTLE_LOG_LEVEL:-info}
+      - THROTTLE_BW_THRESHOLD=${THROTTLE_BW_THRESHOLD:-104857600}
+    volumes:
+      - ./inventory/devices.yaml:/app/devices.yaml
+      - ./throttle-engine/config.yaml:/app/config.yaml:ro
+    # Host network needed for nmap LAN scanning
+    network_mode: host
+
+  # Cloudflare Tunnel is managed by the system cloudflared service
+  # Routes are merged into /etc/cloudflared/config.yml
+
+# ──────────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────────
+
+networks:
+  monitoring:
+    driver: bridge
+    name: homelab-monitoring
+
+# ──────────────────────────────────────────────
+# Persistent Volumes
+# ──────────────────────────────────────────────
+
+volumes:
+  prometheus_data:
+    name: homelab-prometheus-data
+  alertmanager_data:
+    name: homelab-alertmanager-data
+  grafana_data:
+    name: homelab-grafana-data
+  netdata_config:
+    name: homelab-netdata-config
+  netdata_lib:
+    name: homelab-netdata-lib
+  netdata_cache:
+    name: homelab-netdata-cache
+  ntopng_data:
+    name: homelab-ntopng-data

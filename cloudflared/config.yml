@@ -1,0 +1,44 @@
+tunnel: 16f45ea3-027e-40f9-b4fc-55b199b23390
+credentials-file: /home/bpur/.cloudflared/16f45ea3-027e-40f9-b4fc-55b199b23390.json
+
+ingress:
+  # ── Services ──
+  - hostname: status.ocheverse.ng
+    service: http://localhost:3001
+
+  - hostname: vault.ocheverse.ng
+    service: http://localhost:8082
+
+  - hostname: registry.ocheverse.ng
+    service: http://localhost:5000
+
+  - hostname: registry-ui.ocheverse.ng
+    service: http://localhost:5001
+
+  - hostname: jdl.ocheverse.ng
+    service: http://localhost:5800
+
+  - hostname: files.ocheverse.ng
+    service: http://localhost:8088
+
+  - hostname: downloads.ocheverse.ng
+    service: http://localhost:8081
+
+  # ── Monitoring stack (homelab-observability) ──
+  - hostname: grafana-monitor.ocheverse.ng
+    service: http://localhost:3003
+
+  - hostname: prometheus-monitor.ocheverse.ng
+    service: http://localhost:9090
+
+  - hostname: netdata-monitor.ocheverse.ng
+    service: http://localhost:19999
+
+  - hostname: ntopng-monitor.ocheverse.ng
+    service: http://localhost:3002
+
+  - hostname: throttle-monitor.ocheverse.ng
+    service: http://localhost:8090
+
+  # Catch-all (required)
+  - service: http_status:404

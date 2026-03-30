@@ -1,0 +1,22 @@
+# Grafana datasource provisioning
+# These are auto-configured on first boot — no manual setup needed
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: '15s'    # match prometheus scrape_interval
+
+  # Netdata can also be queried directly for its rich built-in charts
+  # Uncomment if you want Netdata as a separate datasource
+  # - name: Netdata
+  #   type: prometheus
+  #   access: proxy
+  #   url: http://netdata:19999/api/v1/allmetrics?format=prometheus
+  #   editable: false

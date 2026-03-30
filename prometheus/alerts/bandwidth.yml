@@ -1,0 +1,76 @@
+# Alert rules for bandwidth and system resource monitoring
+#
+# IMPORTANT: These thresholds are starting points.
+# Tune them after observing your baseline for a week or two.
+
+groups:
+  - name: bandwidth_alerts
+    rules:
+
+      # ── Bandwidth spike on any interface ──
+      # Fires when any interface sustains >100MB/s receive for 2 minutes
+      # This is the alert that feeds the auto-throttle engine
+      - alert: HighBandwidthReceive
+        expr: rate(node_network_receive_bytes_total{device!~"lo|docker.*|br-.*|veth.*"}[2m]) > 104857600
+        for: 2m
+        labels:
+          severity: warning
+          team: homelab
+        annotations:
+          summary: "High inbound bandwidth on {{ $labels.device }}"
+          description: "Interface {{ $labels.device }} receiving {{ humanize $value }}B/s for >2 minutes on {{ $labels.instance }}"
+          # SIMULATED: In a real setup with router integration, this alert
+          # would include the offending source IP from flow data.
+          # For now it identifies the interface under pressure.
+
+      - alert: HighBandwidthTransmit
+        expr: rate(node_network_transmit_bytes_total{device!~"lo|docker.*|br-.*|veth.*"}[2m]) > 104857600
+        for: 2m
+        labels:
+          severity: warning
+          team: homelab
+        annotations:
+          summary: "High outbound bandwidth on {{ $labels.device }}"
+          description: "Interface {{ $labels.device }} transmitting {{ humanize $value }}B/s for >2 minutes on {{ $labels.instance }}"
+
+  - name: system_alerts
+    rules:
+
+      # ── CPU pressure ──
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage above 85% on {{ $labels.instance }}"
+          description: "CPU at {{ printf \"%.1f\" $value }}% for 5+ minutes"
+
+      # ── Memory pressure ──
+      - alert: HighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memory usage above 90% on {{ $labels.instance }}"
+          description: "Memory at {{ printf \"%.1f\" $value }}%"
+
+      # ── Disk space ──
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space below 15% on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+          description: "{{ printf \"%.1f\" $value }}% free on {{ $labels.mountpoint }}"
+
+      # ── Disk IO saturation ──
+      - alert: HighDiskIO
+        expr: rate(node_disk_io_time_seconds_total[5m]) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk IO saturated on {{ $labels.instance }}:{{ $labels.device }}"

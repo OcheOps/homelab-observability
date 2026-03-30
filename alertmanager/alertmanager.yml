@@ -1,0 +1,43 @@
+# Alertmanager configuration
+# Routes bandwidth alerts to the auto-throttle engine webhook
+# All other alerts go to a default receiver (logs for now)
+
+global:
+  resolve_timeout: 5m
+
+route:
+  # Default receiver for anything not matched below
+  receiver: 'default-log'
+  group_by: ['alertname', 'instance']
+  group_wait: 30s         # wait before sending first notification for a group
+  group_interval: 5m      # wait before sending updates for the same group
+  repeat_interval: 4h     # re-notify after this long if still firing
+
+  routes:
+    # Route bandwidth alerts to the throttle engine
+    - match:
+        alertname: HighBandwidthReceive
+      receiver: 'throttle-engine'
+      continue: true       # also send to default for logging
+
+    - match:
+        alertname: HighBandwidthTransmit
+      receiver: 'throttle-engine'
+      continue: true
+
+receivers:
+  # Default: just logs. Add Slack/email/PagerDuty later.
+  - name: 'default-log'
+    # No webhook configured — alerts appear in Alertmanager UI
+    # FUTURE: Add slack_configs, email_configs, etc.
+
+  # Webhook to the Go auto-throttle engine
+  - name: 'throttle-engine'
+    webhook_configs:
+      - url: 'http://172.17.0.1:8090/api/v1/alert'
+        send_resolved: true
+        # max_alerts limits how many alerts per webhook call
+        max_alerts: 10
+
+# FUTURE: Add inhibit_rules to suppress lower-severity alerts
+# when a critical alert for the same instance is already firing
