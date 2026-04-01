@@ -1,3 +1,4 @@
 .env
 cloudflared/credentials.json
+cloudflared/config.yml
 *.log
