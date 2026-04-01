@@ -10,10 +10,12 @@ import (
 )
 
 type Config struct {
-	Server     ServerConfig     `yaml:"server"`
-	Logging    LoggingConfig    `yaml:"logging"`
-	Thresholds ThresholdConfig  `yaml:"thresholds"`
-	Inventory  InventoryConfig  `yaml:"inventory"`
+	Server     ServerConfig    `yaml:"server"`
+	Logging    LoggingConfig   `yaml:"logging"`
+	Thresholds ThresholdConfig `yaml:"thresholds"`
+	Inventory  InventoryConfig `yaml:"inventory"`
+	Auth       AuthConfig      `yaml:"auth"`
+	Prometheus PrometheusConfig `yaml:"prometheus"`
 }
 
 type ServerConfig struct {
@@ -36,7 +38,15 @@ type InventoryConfig struct {
 	Path string `yaml:"path"`
 }
 
-// Load reads config from a YAML file and applies environment variable overrides.
+type AuthConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+type PrometheusConfig struct {
+	URL string `yaml:"url"`
+}
+
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -48,7 +58,6 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	// Environment variable overrides take precedence over file values
 	if v := os.Getenv("THROTTLE_LISTEN_ADDR"); v != "" {
 		cfg.Server.ListenAddr = v
 	}
@@ -59,6 +68,15 @@ func Load(path string) (*Config, error) {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			cfg.Thresholds.BandwidthBytesPerSec = n
 		}
+	}
+	if v := os.Getenv("THROTTLE_AUTH_USER"); v != "" {
+		cfg.Auth.Username = v
+	}
+	if v := os.Getenv("THROTTLE_AUTH_PASS"); v != "" {
+		cfg.Auth.Password = v
+	}
+	if v := os.Getenv("THROTTLE_PROMETHEUS_URL"); v != "" {
+		cfg.Prometheus.URL = v
 	}
 
 	return cfg, nil

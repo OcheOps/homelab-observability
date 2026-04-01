@@ -39,6 +39,7 @@ func main() {
 	logger.Info("starting throttle engine",
 		"listen_addr", cfg.Server.ListenAddr,
 		"bw_threshold_bytes", cfg.Thresholds.BandwidthBytesPerSec,
+		"auth_enabled", cfg.Auth.Username != "",
 	)
 
 	inv, err := inventory.Load(cfg.Inventory.Path)
@@ -51,6 +52,7 @@ func main() {
 
 	webhookHandler := handler.NewWebhookHandler(cfg, inv, logger)
 	uiHandler := handler.NewUIHandler(webhookHandler, inv)
+	metricsHandler := handler.NewMetricsHandler(cfg.Prometheus.URL)
 	mux := http.NewServeMux()
 
 	// Dashboard UI
@@ -66,6 +68,8 @@ func main() {
 	})
 	mux.HandleFunc("/api/v1/devices/update", uiHandler.HandleUpdateDevice)
 	mux.HandleFunc("/api/v1/scan", uiHandler.HandleNetworkScan)
+	mux.HandleFunc("/api/v1/metrics/bandwidth", metricsHandler.HandleBandwidth)
+	mux.HandleFunc("/api/v1/metrics/system", metricsHandler.HandleSystemStats)
 
 	// Health check
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +80,12 @@ func main() {
 		})
 	})
 
+	// Wrap with basic auth
+	authedMux := handler.BasicAuth(&cfg.Auth, mux)
+
 	server := &http.Server{
 		Addr:         cfg.Server.ListenAddr,
-		Handler:      mux,
+		Handler:      authedMux,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  60 * time.Second,

@@ -146,6 +146,9 @@ services:
       - THROTTLE_LISTEN_ADDR=${THROTTLE_LISTEN_ADDR:-:8090}
       - THROTTLE_LOG_LEVEL=${THROTTLE_LOG_LEVEL:-info}
       - THROTTLE_BW_THRESHOLD=${THROTTLE_BW_THRESHOLD:-104857600}
+      - THROTTLE_AUTH_USER=${THROTTLE_AUTH_USER:-}
+      - THROTTLE_AUTH_PASS=${THROTTLE_AUTH_PASS:-}
+      - THROTTLE_PROMETHEUS_URL=${THROTTLE_PROMETHEUS_URL:-http://localhost:9090}
     volumes:
       - ./inventory/devices.yaml:/app/devices.yaml
       - ./throttle-engine/config.yaml:/app/config.yaml:ro
